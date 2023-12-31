@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+trap 'exit 1' 1 2 15
+
+#### The variables below must be modified:
+# Home directory for the calling user:
+home=YOUR_HOME_DIR
+# Location of local copies of the website pages:
+wwwpath=${home}/SUBDIR
+# Page used for google site verification. It will not be tested.
+google_verification_page=YOUR_GOOGLE_VERIFICATION_PAGE
+# The website in which tests will be run:
+website=https://YOUR_WEBSITE
+
+#### The variables below may need to be modified:
+# Location of the `lighthouse` executable
+lighthouse_exec=${home}/.npm-global/bin/lighthouse
+# Location where the lighthouse results will be written to:
+output_path=${home}/LighthouseReports
+# Location of the python script for processing lighthouse results:
+python_exec=${output_path}/process_lighthouse_results.py
+# The suffix to append to the results files:
+suffix=$(date -I)
+
+for page in $(ls -1 ${wwwpath}/*.html)
+do
+    page=$(basename $page)
+    if [[ $page != $google_verification_page ]]
+    then
+        desktop_output_file="${output_path}/lighthouse_desktop_${page%.html}_${suffix}.json"
+        desktop_command="${lighthouse_exec} \
+            --output json --output-path ${desktop_output_file} \
+            --quiet --preset=desktop --chrome-flags=\"--headless\" \
+            ${website}/${page}"
+        mobile_output_file="${output_path}/lighthouse_mobile_${page%.html}_${suffix}.json"
+        mobile_command="${lighthouse_exec} \
+            --output json --output-path ${mobile_output_file} \
+            --quiet --form-factor=mobile --chrome-flags=\"--headless\" \
+            ${website}/mobile/${page}"
+        for command in "$desktop_command" "$mobile_command"
+        do
+            error=$(${command} 2>&1)
+            if [[ $? -ne 0 ]]
+            then
+                echo "Error while running test for $page: $error"
+            fi
+        done
+
+        echo "Scores for ${page}:"
+        ${python_exec} ${desktop_output_file}
+        echo
+        echo "Scores for ${page} (mobile version):"
+        ${python_exec} ${mobile_output_file}
+        echo
+    fi
+done
+
+echo "For more details see the .json files in ${output_path}. Category definitions can be found \
+(in some cases) under categories[<category_name>]['description']."
