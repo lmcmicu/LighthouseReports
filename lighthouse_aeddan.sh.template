@@ -2,6 +2,12 @@
 
 trap 'exit 1' 1 2 15
 
+if [[ $BASH_VERSINFO -lt 4 ]]
+then
+    echo "This script requires bash version 4 or greater."
+    exit 1
+fi
+
 #### The variables below must be modified:
 # Home directory for the calling user:
 home=YOUR_HOME_DIR
